@@ -2,91 +2,158 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Feedback, ProfileInput, Routine, RoutineStep } from "@/lib/types";
-import { loadLastRoutine, loadProfile, saveLastRoutine } from "@/lib/storage";
+import {
+  clearSessionData,
+  loadChecklist,
+  loadFeedback,
+  loadLastRoutine,
+  loadProfile,
+  saveChecklist,
+  saveFeedback,
+  saveLastRoutine,
+} from "@/lib/storage";
 
-function BlockTitle({ label }: { label: string }) {
+function labelBlock(label: string) {
   const map: Record<string, string> = { morning: "Mañana", afternoon: "Tarde", evening: "Noche" };
-  return <h2 className="text-lg font-semibold">{map[label] ?? label}</h2>;
+  return map[label] ?? label;
 }
 
-function Pill({ children }: { children: React.ReactNode }) {
-  return <span className="inline-flex items-center rounded-full border px-2 py-1 text-xs">{children}</span>;
+function Chip({ children }: { children: React.ReactNode }) {
+  return <span className="chip">{children}</span>;
+}
+
+function ProgressBar({ value }: { value: number }) {
+  return (
+    <div className="h-2 w-full rounded-full bg-black/[0.06] overflow-hidden">
+      <div
+        className="h-full rounded-full"
+        style={{
+          width: `${Math.max(0, Math.min(100, value))}%`,
+          background: "linear-gradient(90deg, rgba(99,102,241,1), rgba(16,185,129,0.95))",
+        }}
+      />
+    </div>
+  );
+}
+
+function Segment({
+  value,
+  onChange,
+}: {
+  value: Feedback["outcome"] | "none";
+  onChange: (v: Feedback["outcome"]) => void;
+}) {
+  const base =
+    "px-3 py-2 text-xs font-medium rounded-xl border transition select-none";
+  const activeStyle = (v: string) =>
+    value === v
+      ? "border-transparent text-white"
+      : "bg-white";
+
+  const activeBg = (v: string) =>
+    value === v
+      ? { background: "linear-gradient(135deg, rgba(99,102,241,1), rgba(99,102,241,0.78))" }
+      : undefined;
+
+  return (
+    <div className="flex items-center gap-2">
+      <button className={`${base} ${activeStyle("ok")}`} style={activeBg("ok")} onClick={() => onChange("ok")}>
+        OK
+      </button>
+      <button className={`${base} ${activeStyle("hard")}`} style={activeBg("hard")} onClick={() => onChange("hard")}>
+        Difícil
+      </button>
+      <button className={`${base} ${activeStyle("failed")}`} style={activeBg("failed")} onClick={() => onChange("failed")}>
+        Falló
+      </button>
+    </div>
+  );
 }
 
 function StepCard({
   step,
+  done,
+  outcome,
+  onToggleDone,
   onFeedback,
 }: {
   step: RoutineStep;
-  onFeedback: (outcome: Feedback["outcome"]) => void;
+  done: boolean;
+  outcome: Feedback["outcome"] | "none";
+  onToggleDone: () => void;
+  onFeedback: (v: Feedback["outcome"]) => void;
 }) {
   return (
-    <div className="rounded-2xl border p-4 bg-white dark:bg-neutral-950">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="font-medium">{step.title}</div>
-          <div className="mt-1 flex gap-2 flex-wrap">
-            <Pill>{step.durationMin} min</Pill>
-            {step.visualSupport?.length ? <Pill>Apoyo visual</Pill> : null}
-            {step.sensoryNotes?.length ? <Pill>Sensory</Pill> : null}
-            {step.backupPlan?.length ? <Pill>Plan B</Pill> : null}
+    <div className="card p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={onToggleDone}
+              className="h-6 w-6 rounded-lg border flex items-center justify-center"
+              style={
+                done
+                  ? { background: "rgba(16,185,129,0.12)", borderColor: "rgba(16,185,129,0.35)" }
+                  : undefined
+              }
+              aria-label="Marcar como completado"
+              title="Marcar como completado"
+            >
+              {done ? "✓" : ""}
+            </button>
+            <div className="font-semibold truncate">{step.title}</div>
+            <Chip>{step.durationMin} min</Chip>
+            {step.visualSupport?.length ? <Chip>Apoyo visual</Chip> : null}
+            {step.sensoryNotes?.length ? <Chip>Sensory</Chip> : null}
+            {step.backupPlan?.length ? <Chip>Plan B</Chip> : null}
+          </div>
+
+          <div className="mt-3 grid gap-4 md:grid-cols-2">
+            <div>
+              <div className="text-sm font-medium">Instrucciones</div>
+              <ul className="mt-2 list-disc ml-5 text-sm muted space-y-1">
+                {step.instructions.map((i, idx) => (
+                  <li key={idx}>{i}</li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="space-y-3">
+              {step.visualSupport?.length ? (
+                <div>
+                  <div className="text-sm font-medium">Apoyo visual</div>
+                  <div className="mt-1 text-sm muted">{step.visualSupport.join(", ")}</div>
+                </div>
+              ) : null}
+
+              {step.sensoryNotes?.length ? (
+                <div>
+                  <div className="text-sm font-medium">Notas sensoriales</div>
+                  <ul className="mt-2 list-disc ml-5 text-sm muted space-y-1">
+                    {step.sensoryNotes.map((n, idx) => (
+                      <li key={idx}>{n}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {step.backupPlan?.length ? (
+                <div>
+                  <div className="text-sm font-medium">Plan B</div>
+                  <ul className="mt-2 list-disc ml-5 text-sm muted space-y-1">
+                    {step.backupPlan.map((b, idx) => (
+                      <li key={idx}>{b}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <button onClick={() => onFeedback("ok")} className="rounded-xl border px-3 py-2 text-sm">
-            OK
-          </button>
-          <button onClick={() => onFeedback("hard")} className="rounded-xl border px-3 py-2 text-sm">
-            Difícil
-          </button>
-          <button onClick={() => onFeedback("failed")} className="rounded-xl border px-3 py-2 text-sm">
-            Falló
-          </button>
-        </div>
-      </div>
-
-      <div className="mt-3 grid gap-3 md:grid-cols-2">
-        <div>
-          <div className="text-sm font-medium">Instrucciones</div>
-          <ul className="mt-1 list-disc ml-5 text-sm text-neutral-700 dark:text-neutral-300 space-y-1">
-            {step.instructions.map((i, idx) => (
-              <li key={idx}>{i}</li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="space-y-2">
-          {step.visualSupport?.length ? (
-            <div>
-              <div className="text-sm font-medium">Apoyo visual</div>
-              <div className="mt-1 text-sm text-neutral-700 dark:text-neutral-300">
-                {step.visualSupport.join(", ")}
-              </div>
-            </div>
-          ) : null}
-
-          {step.sensoryNotes?.length ? (
-            <div>
-              <div className="text-sm font-medium">Notas sensoriales</div>
-              <ul className="mt-1 list-disc ml-5 text-sm text-neutral-700 dark:text-neutral-300 space-y-1">
-                {step.sensoryNotes.map((n, idx) => (
-                  <li key={idx}>{n}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          {step.backupPlan?.length ? (
-            <div>
-              <div className="text-sm font-medium">Plan B</div>
-              <ul className="mt-1 list-disc ml-5 text-sm text-neutral-700 dark:text-neutral-300 space-y-1">
-                {step.backupPlan.map((b, idx) => (
-                  <li key={idx}>{b}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
+        <div className="shrink-0">
+          <div className="text-xs muted mb-2">Feedback</div>
+          <Segment value={outcome} onChange={onFeedback} />
         </div>
       </div>
     </div>
@@ -96,27 +163,49 @@ function StepCard({
 export default function RoutinesPage() {
   const [profile, setProfile] = useState<ProfileInput | null>(null);
   const [routine, setRoutine] = useState<Routine | null>(null);
-  const [feedback, setFeedback] = useState<Feedback[]>([]);
+
+  const [doneIds, setDoneIds] = useState<string[]>([]);
+  const [feedback, setFeedbackState] = useState<Feedback[]>([]);
+
   const [status, setStatus] = useState<string>("");
 
   useEffect(() => {
-    const p = loadProfile();
-    setProfile(p);
+    setProfile(loadProfile());
     setRoutine(loadLastRoutine());
+    setDoneIds(loadChecklist());
+    setFeedbackState(loadFeedback());
   }, []);
 
-  const canGenerate = !!profile;
+  const allSteps = useMemo(() => {
+    const steps: RoutineStep[] = [];
+    if (!routine) return steps;
+    for (const b of routine.blocks) steps.push(...b.steps);
+    return steps;
+  }, [routine]);
 
-  const feedbackByStep = useMemo(() => {
+  const progress = useMemo(() => {
+    if (!allSteps.length) return 0;
+    const doneCount = allSteps.filter((s) => doneIds.includes(s.id)).length;
+    return Math.round((doneCount / allSteps.length) * 100);
+  }, [allSteps, doneIds]);
+
+  const feedbackMap = useMemo(() => {
     const map = new Map<string, Feedback["outcome"]>();
     for (const f of feedback) map.set(f.stepId, f.outcome);
     return map;
   }, [feedback]);
 
   async function generate() {
-    if (!profile) return;
+    if (!profile) {
+      setStatus("No hay perfil guardado. Ve a Perfil y guárdalo.");
+      setTimeout(() => setStatus(""), 1500);
+      return;
+    }
+
     setStatus("Generando rutina…");
-    setFeedback([]);
+    clearSessionData();
+    setDoneIds([]);
+    setFeedbackState([]);
 
     const res = await fetch("/api/routines/generate", {
       method: "POST",
@@ -132,19 +221,23 @@ export default function RoutinesPage() {
 
     setRoutine(data.routine);
     saveLastRoutine(data.routine);
+
     setStatus("Rutina generada.");
-    setTimeout(() => setStatus(""), 1200);
+    setTimeout(() => setStatus(""), 1000);
   }
 
   async function refine() {
     if (!routine) return;
-    if (feedback.length === 0) {
-      setStatus("Agrega feedback en al menos un paso (Difícil o Falló).");
+
+    const hasSignal = feedback.some((f) => f.outcome !== "ok");
+    if (!hasSignal) {
+      setStatus("Marca al menos un paso como Difícil o Falló para refinar.");
       setTimeout(() => setStatus(""), 1500);
       return;
     }
 
-    setStatus("Refinando rutina…");
+    setStatus("Refinando con feedback…");
+
     const res = await fetch("/api/routines/refine", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -159,134 +252,146 @@ export default function RoutinesPage() {
 
     setRoutine(data.routine);
     saveLastRoutine(data.routine);
+
     setStatus("Rutina refinada.");
-    setTimeout(() => setStatus(""), 1200);
+    setTimeout(() => setStatus(""), 1000);
   }
 
-  function addFeedback(stepId: string, outcome: Feedback["outcome"]) {
-    if (!routine) return;
-    setFeedback((prev) => {
-      const next = prev.filter((f) => f.stepId !== stepId);
+  function toggleDone(stepId: string) {
+    setDoneIds((prev) => {
+      const next = prev.includes(stepId) ? prev.filter((x) => x !== stepId) : [...prev, stepId];
+      saveChecklist(next);
+      return next;
+    });
+  }
+
+  function setOutcome(stepId: string, outcome: Feedback["outcome"]) {
+    setFeedbackState((prev) => {
+      const next = prev.filter((x) => x.stepId !== stepId);
       next.push({ routineId: "local", stepId, outcome });
+      saveFeedback(next);
       return next;
     });
   }
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border p-6 bg-white dark:bg-neutral-950">
+      <section className="card p-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-xl font-semibold">Rutinas</h1>
-            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-              Generación por reglas + adaptación por feedback (explicable).
+            <h1 className="text-2xl font-semibold">Rutina</h1>
+            <p className="muted mt-1">
+              Checklist del día + feedback. Generación por reglas explicable.
             </p>
           </div>
 
-          <div className="flex gap-2">
-            <button
-              onClick={generate}
-              disabled={!canGenerate}
-              className="rounded-xl px-4 py-2 border bg-neutral-900 text-white disabled:opacity-40 dark:bg-white dark:text-neutral-900"
-            >
+          <div className="flex items-center gap-2">
+            <button className="btn-secondary" onClick={generate}>
               Generar
             </button>
-            <button
-              onClick={refine}
-              disabled={!routine}
-              className="rounded-xl px-4 py-2 border disabled:opacity-40"
-            >
+            <button className="btn-primary" onClick={refine} disabled={!routine}>
               Refinar con feedback
             </button>
           </div>
         </div>
 
-        {!profile ? (
-          <div className="mt-4 rounded-xl border p-4 text-sm">
-            No hay perfil guardado. Ve a <b>Perfil</b> y guarda uno para generar rutinas.
-          </div>
-        ) : (
-          <div className="mt-4 grid gap-2 md:grid-cols-4 text-sm">
-            <div className="rounded-xl border p-3">
-              <div className="text-neutral-600 dark:text-neutral-400">Edad</div>
-              <div className="font-medium">{profile.age}</div>
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <div className="card p-4 md:col-span-2">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium">Progreso del día</div>
+              <div className="text-sm font-semibold">{progress}%</div>
             </div>
-            <div className="rounded-xl border p-3">
-              <div className="text-neutral-600 dark:text-neutral-400">Comunicación</div>
-              <div className="font-medium">{profile.communicationLevel}</div>
+            <div className="mt-3">
+              <ProgressBar value={progress} />
             </div>
-            <div className="rounded-xl border p-3">
-              <div className="text-neutral-600 dark:text-neutral-400">Contexto</div>
-              <div className="font-medium">{profile.context}</div>
-            </div>
-            <div className="rounded-xl border p-3">
-              <div className="text-neutral-600 dark:text-neutral-400">Sensibilidades</div>
-              <div className="font-medium">{profile.sensorySensitivity.join(", ") || "—"}</div>
+            <div className="mt-2 text-xs muted">
+              Marca pasos completados para que la rutina se sienta operativa.
             </div>
           </div>
-        )}
+
+          <div className="card p-4">
+            <div className="text-sm font-medium">Perfil</div>
+            {!profile ? (
+              <div className="mt-2 text-sm muted">No hay perfil guardado.</div>
+            ) : (
+              <div className="mt-2 text-sm space-y-1">
+                <div className="flex justify-between"><span className="muted">Edad</span><span className="font-medium">{profile.age}</span></div>
+                <div className="flex justify-between"><span className="muted">Contexto</span><span className="font-medium">{profile.context}</span></div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {(profile.sensorySensitivity.length ? profile.sensorySensitivity : ["—"]).map((x) => (
+                    <Chip key={x}>{x}</Chip>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
         {status ? <div className="mt-4 text-sm">{status}</div> : null}
       </section>
 
       {!routine ? (
-        <section className="rounded-2xl border p-6 bg-white dark:bg-neutral-950">
-          <div className="text-sm text-neutral-600 dark:text-neutral-400">
-            Genera una rutina para verla aquí.
-          </div>
+        <section className="card p-6">
+          <div className="font-semibold">Sin rutina todavía</div>
+          <p className="muted mt-1 text-sm">
+            Genera una rutina para verla aquí. Si ya guardaste el perfil, el botón “Generar” es suficiente.
+          </p>
         </section>
       ) : (
-        <div className="grid gap-4">
-          <section className="rounded-2xl border p-6 bg-white dark:bg-neutral-950">
+        <section className="space-y-4">
+          <div className="card p-6">
             <div className="text-lg font-semibold">{routine.title}</div>
-            <div className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-              Objetivo: <span className="text-neutral-900 dark:text-neutral-50">{routine.goal}</span>
-            </div>
+            <div className="muted mt-1 text-sm">Objetivo: <span className="text-neutral-900">{routine.goal}</span></div>
 
             <div className="mt-4 grid gap-3 md:grid-cols-3 text-sm">
-              <div className="rounded-xl border p-4">
+              <div className="card p-4">
                 <div className="font-medium">Plan de cambios</div>
-                <ul className="mt-2 list-disc ml-5 space-y-1 text-neutral-700 dark:text-neutral-300">
+                <ul className="mt-2 list-disc ml-5 muted space-y-1">
                   {routine.changePlan.map((x, i) => <li key={i}>{x}</li>)}
                 </ul>
               </div>
-              <div className="rounded-xl border p-4">
+              <div className="card p-4">
                 <div className="font-medium">Señales de sobrecarga</div>
-                <ul className="mt-2 list-disc ml-5 space-y-1 text-neutral-700 dark:text-neutral-300">
+                <ul className="mt-2 list-disc ml-5 muted space-y-1">
                   {routine.overloadSignals.map((x, i) => <li key={i}>{x}</li>)}
                 </ul>
               </div>
-              <div className="rounded-xl border p-4">
-                <div className="font-medium">Notas para cuidador</div>
-                <ul className="mt-2 list-disc ml-5 space-y-1 text-neutral-700 dark:text-neutral-300">
+              <div className="card p-4">
+                <div className="font-medium">Notas cuidador</div>
+                <ul className="mt-2 list-disc ml-5 muted space-y-1">
                   {routine.caregiverNotes.map((x, i) => <li key={i}>{x}</li>)}
                 </ul>
               </div>
             </div>
-          </section>
+          </div>
 
           {routine.blocks.map((b) => (
-            <section key={b.label} className="space-y-3">
-              <div className="flex items-center justify-between">
-                <BlockTitle label={b.label} />
-                <div className="text-sm text-neutral-600 dark:text-neutral-400">
-                  Feedback marcado:{" "}
-                  {b.steps.filter((s) => feedbackByStep.get(s.id) && feedbackByStep.get(s.id) !== "ok").length}
+            <details key={b.label} className="card p-0 overflow-hidden" open>
+              <summary className="cursor-pointer select-none px-6 py-4 flex items-center justify-between">
+                <div className="font-semibold">{labelBlock(b.label)}</div>
+                <div className="text-sm muted">
+                  {b.steps.filter((s) => doneIds.includes(s.id)).length}/{b.steps.length} completados
                 </div>
-              </div>
-              <div className="grid gap-3">
-                {b.steps.map((s) => (
-                  <div key={s.id} className="space-y-2">
+              </summary>
+
+              <div className="px-6 pb-6 space-y-3">
+                {b.steps.map((s) => {
+                  const outcome = feedbackMap.get(s.id) ?? "none";
+                  return (
                     <StepCard
+                      key={s.id}
                       step={s}
-                      onFeedback={(outcome) => addFeedback(s.id, outcome)}
+                      done={doneIds.includes(s.id)}
+                      outcome={outcome}
+                      onToggleDone={() => toggleDone(s.id)}
+                      onFeedback={(v) => setOutcome(s.id, v)}
                     />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
-            </section>
+            </details>
           ))}
-        </div>
+        </section>
       )}
     </div>
   );

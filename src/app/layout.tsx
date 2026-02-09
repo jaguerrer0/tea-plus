@@ -1,17 +1,11 @@
 import "./globals.css";
-import type { Metadata } from "next";
 import Link from "next/link";
 
-export const metadata: Metadata = {
-  title: "TEA+ | Rutinas con IA (reglas)",
-  description: "Rutinas claras y adaptables para TEA usando motor de reglas explicable.",
-};
-
-function NavLink({ href, label }: { href: string; label: string }) {
+function NavItem({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="px-3 py-2 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 transition"
+      className="px-3 py-2 rounded-xl text-sm font-medium transition hover:bg-black/[0.04]"
     >
       {label}
     </Link>
@@ -21,26 +15,29 @@ function NavLink({ href, label }: { href: string; label: string }) {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body className="min-h-screen bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-50">
-        <div className="border-b bg-white/70 dark:bg-neutral-950/70 backdrop-blur">
+      <body>
+        <header className="sticky top-0 z-50 border-b glass">
           <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="h-8 w-8 rounded-xl bg-neutral-900 dark:bg-white" />
+              <div className="h-9 w-9 rounded-2xl"
+                   style={{
+                     background: "linear-gradient(135deg, rgba(99,102,241,1), rgba(16,185,129,0.9))",
+                     boxShadow: "0 10px 25px rgba(99,102,241,0.18)"
+                   }}
+              />
               <div className="leading-tight">
                 <div className="font-semibold">TEA+</div>
-                <div className="text-xs text-neutral-500 dark:text-neutral-400">
-                  Rutinas con IA basada en reglas
-                </div>
+                <div className="text-xs muted">Rutinas claras, predecibles y adaptables</div>
               </div>
             </div>
 
-            <nav className="flex items-center gap-1 text-sm">
-              <NavLink href="/" label="Inicio" />
-              <NavLink href="/profile" label="Perfil" />
-              <NavLink href="/routines" label="Rutinas" />
+            <nav className="flex items-center gap-1">
+              <NavItem href="/" label="Inicio" />
+              <NavItem href="/profile" label="Perfil" />
+              <NavItem href="/routines" label="Rutina" />
             </nav>
           </div>
-        </div>
+        </header>
 
         <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
       </body>
