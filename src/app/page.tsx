@@ -21,7 +21,6 @@ export default function Home() {
     });
 
     const data = await res.json();
-    setRaw(JSON.stringify(data, null, 2));
     if (res.ok) setRoutine(data.routine);
   }
 
@@ -57,7 +56,6 @@ export default function Home() {
         </section>
       )}
 
-      <pre className="text-xs border rounded p-4 overflow-auto">{raw}</pre>
     </main>
   );
 }
