@@ -34,9 +34,11 @@ export default function ProfilePage() {
 
 
   const [profile, setProfile] = useState<ProfileInput>({
+    name: "",
     age: 8,
     communicationLevel: "verbal",
     sensorySensitivity: [],
+    supportLevel: undefined,
     goal: "Rutina matutina para ir a la escuela",
     context: "home",
   });
@@ -94,6 +96,18 @@ export default function ProfilePage() {
           {step === 1 && (
             <div className="space-y-4">
               <div>
+                <div className="text-sm font-medium">Nombre (opcional)</div>
+                <div className="muted text-xs">Solo un nombre para personalizar la rutina.</div>
+                <input
+                  className="input mt-2"
+                  value={profile.name ?? ""}
+                  onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))}
+                  placeholder="Ej: Juan"
+                  maxLength={40}
+                />
+              </div>
+
+              <div>
                 <div className="text-sm font-medium">Edad</div>
                 <div className="muted text-xs">Ajusta duración y granularidad de pasos.</div>
                 <input
@@ -142,6 +156,28 @@ export default function ProfilePage() {
                     <option value="home">Casa</option>
                     <option value="school">Escuela</option>
                     <option value="mixed">Mixto</option>
+                  </select>
+                </div>
+
+                <div>
+                  <div className="text-sm font-medium">Nivel de apoyo (opcional)</div>
+                  <div className="muted text-xs">
+                    Ajusta granularidad y apoyos (no es diagnóstico).
+                  </div>
+                  <select
+                    className="input mt-2"
+                    value={profile.supportLevel ?? ""}
+                    onChange={(e) =>
+                      setProfile((p) => ({
+                        ...p,
+                        supportLevel: (e.target.value || undefined) as ProfileInput["supportLevel"],
+                      }))
+                    }
+                  >
+                    <option value="">—</option>
+                    <option value="low">Bajo</option>
+                    <option value="moderate">Moderado</option>
+                    <option value="high">Alto</option>
                   </select>
                 </div>
               </div>
@@ -248,9 +284,15 @@ export default function ProfilePage() {
           <div className="muted text-sm mt-1">Así se usará para generar la rutina.</div>
 
           <div className="mt-4 space-y-3 text-sm">
+            {profile.name?.trim() ? (
+              <div className="flex items-center justify-between"><span className="muted">Nombre</span><span className="font-medium">{profile.name.trim()}</span></div>
+            ) : null}
             <div className="flex items-center justify-between"><span className="muted">Edad</span><span className="font-medium">{profile.age}</span></div>
             <div className="flex items-center justify-between"><span className="muted">Comunicación</span><span className="font-medium">{profile.communicationLevel}</span></div>
             <div className="flex items-center justify-between"><span className="muted">Contexto</span><span className="font-medium">{profile.context}</span></div>
+            {profile.supportLevel ? (
+              <div className="flex items-center justify-between"><span className="muted">Apoyo</span><span className="font-medium">{profile.supportLevel}</span></div>
+            ) : null}
             <div>
               <div className="muted">Objetivo</div>
               <div className="font-medium mt-1">{profile.goal}</div>

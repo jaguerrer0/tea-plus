@@ -1,9 +1,11 @@
 import { z } from "zod";
 
 export const GenerateRoutineSchema = z.object({
+  name: z.string().min(1).max(40).optional(),
   age: z.number().min(2).max(99),
   communicationLevel: z.enum(["verbal", "semi-verbal", "non-verbal"]),
   sensorySensitivity: z.array(z.enum(["sound", "light", "touch", "crowds"])),
+  supportLevel: z.enum(["low", "moderate", "high"]).optional(),
   goal: z.string().min(5).max(140),
   context: z.enum(["home", "school", "mixed"]),
 });

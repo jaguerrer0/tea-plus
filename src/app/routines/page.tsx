@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { Feedback, ProfileInput, Routine, RoutineStep } from "@/lib/types";
+import Link from "next/link";
+import type { Feedback, PlannedEvent, ProfileInput, Routine, RoutineStep } from "@/lib/types";
 import {
   clearSessionData,
   loadChecklist,
@@ -11,7 +12,10 @@ import {
   saveChecklist,
   saveFeedback,
   saveLastRoutine,
+  getTodayKey,
 } from "@/lib/storage";
+
+import { loadEvents } from "@/lib/calendar-storage";
 
 function labelBlock(label: string) {
   const map: Record<string, string> = { morning: "Mañana", afternoon: "Tarde", evening: "Noche" };
@@ -43,17 +47,10 @@ function Segment({
   value: Feedback["outcome"] | "none";
   onChange: (v: Feedback["outcome"]) => void;
 }) {
-  const base =
-    "px-3 py-2 text-xs font-medium rounded-xl border transition select-none";
-  const activeStyle = (v: string) =>
-    value === v
-      ? "border-transparent text-white"
-      : "bg-white";
-
+  const base = "px-3 py-2 text-xs font-medium rounded-xl border transition select-none";
+  const activeStyle = (v: string) => (value === v ? "border-transparent text-white" : "bg-white");
   const activeBg = (v: string) =>
-    value === v
-      ? { background: "linear-gradient(135deg, rgba(99,102,241,1), rgba(99,102,241,0.78))" }
-      : undefined;
+    value === v ? { background: "linear-gradient(135deg, rgba(99,102,241,1), rgba(99,102,241,0.78))" } : undefined;
 
   return (
     <div className="flex items-center gap-2">
@@ -63,7 +60,11 @@ function Segment({
       <button className={`${base} ${activeStyle("hard")}`} style={activeBg("hard")} onClick={() => onChange("hard")}>
         Difícil
       </button>
-      <button className={`${base} ${activeStyle("failed")}`} style={activeBg("failed")} onClick={() => onChange("failed")}>
+      <button
+        className={`${base} ${activeStyle("failed")}`}
+        style={activeBg("failed")}
+        onClick={() => onChange("failed")}
+      >
         Falló
       </button>
     </div>
@@ -76,13 +77,21 @@ function StepAccordionItem({
   outcome,
   onToggleDone,
   onFeedback,
+  onAddVisualAsset,
+  disableToggle,
 }: {
   step: RoutineStep;
   done: boolean;
   outcome: Feedback["outcome"] | "none";
   onToggleDone: () => void;
   onFeedback: (v: Feedback["outcome"]) => void;
+  onAddVisualAsset: (src: string, type: "pictogram" | "photo", label?: string) => void;
+  disableToggle?: boolean;
 }) {
+  const [assetSrc, setAssetSrc] = useState("");
+  const [assetType, setAssetType] = useState<"pictogram" | "photo">("pictogram");
+  const [assetLabel, setAssetLabel] = useState("");
+
   return (
     <details className="card overflow-hidden">
       <summary className="cursor-pointer select-none px-5 py-4 flex items-center justify-between gap-4">
@@ -90,7 +99,7 @@ function StepAccordionItem({
           <button
             onClick={(e) => {
               e.preventDefault();
-              onToggleDone();
+              if (!disableToggle) onToggleDone();
             }}
             className="h-6 w-6 rounded-lg border flex items-center justify-center shrink-0"
             style={
@@ -99,7 +108,8 @@ function StepAccordionItem({
                 : undefined
             }
             aria-label="Marcar como completado"
-            title="Marcar como completado"
+            title={disableToggle ? "Día completado (reinicia para modificar)" : "Marcar como completado"}
+            disabled={disableToggle}
           >
             {done ? "✓" : ""}
           </button>
@@ -121,16 +131,13 @@ function StepAccordionItem({
             <Segment value={outcome} onChange={onFeedback} />
           </div>
 
-          {/* Chevron */}
           <span className="chip chev" aria-hidden>
             ▼
           </span>
-
         </div>
       </summary>
 
       <div className="px-5 pb-5 pt-1 border-t" style={{ borderColor: "rgb(var(--border))" }}>
-        {/* Feedback en mobile */}
         <div className="md:hidden flex items-center justify-between gap-3 mb-4">
           <div className="text-xs muted">Feedback</div>
           <Segment value={outcome} onChange={onFeedback} />
@@ -153,6 +160,46 @@ function StepAccordionItem({
                 <div className="mt-1 text-sm muted">{step.visualSupport.join(", ")}</div>
               </div>
             ) : null}
+
+            <div>
+              <div className="text-sm font-medium">Pictogramas / fotos</div>
+              {step.visualAssets?.length ? (
+                <div className="mt-2 grid gap-2 grid-cols-2">
+                  {step.visualAssets.map((a, i) => (
+                    <div key={i} className="card p-2">
+                      {/* Nota: src puede ser URL o dataURL */}
+                      <img src={a.src} alt={a.label ?? a.type} className="rounded-xl border" />
+                      {a.label ? <div className="text-xs muted mt-1">{a.label}</div> : null}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-1 text-sm muted">Sin pictogramas/fotos aún.</div>
+              )}
+
+              <div className="mt-3 grid gap-2">
+                <div className="grid gap-2 md:grid-cols-3">
+                  <select className="input" value={assetType} onChange={(e) => setAssetType(e.target.value as any)}>
+                    <option value="pictogram">Pictograma</option>
+                    <option value="photo">Foto</option>
+                  </select>
+                  <input className="input" value={assetLabel} onChange={(e) => setAssetLabel(e.target.value)} placeholder="Etiqueta (opcional)" maxLength={40} />
+                  <button
+                    className="btn-secondary"
+                    onClick={() => {
+                      const src = assetSrc.trim();
+                      if (!src) return;
+                      onAddVisualAsset(src, assetType, assetLabel.trim() || undefined);
+                      setAssetSrc("");
+                      setAssetLabel("");
+                    }}
+                  >
+                    Agregar
+                  </button>
+                </div>
+                <input className="input" value={assetSrc} onChange={(e) => setAssetSrc(e.target.value)} placeholder="URL o dataURL (pictograma/foto)" />
+              </div>
+            </div>
 
             {step.sensoryNotes?.length ? (
               <div>
@@ -189,24 +236,30 @@ export default function RoutinesPage() {
 
   const [doneIds, setDoneIds] = useState<string[]>([]);
   const [feedback, setFeedbackState] = useState<Feedback[]>([]);
-
   const [status, setStatus] = useState<string>("");
+  const [events, setEvents] = useState<PlannedEvent[]>([]);
+
+  // Día actual (para leer/guardar checklist+feedback por fecha)
+  const dayKey = useMemo(() => getTodayKey(), []);
 
   useEffect(() => {
     setProfile(loadProfile());
     const r = loadLastRoutine();
     setRoutine(r);
-    setDoneIds(loadChecklist());
-    setFeedbackState(loadFeedback());
-    if (r?.blocks?.length) setActiveBlock(r.blocks[0].label as any);
-  }, []);
 
+    // Carga checklist/feedback del día actual
+    setDoneIds(loadChecklist(dayKey));
+    setFeedbackState(loadFeedback(dayKey));
+
+    // Eventos del día (anticipación)
+    setEvents(loadEvents(dayKey));
+
+    if (r?.blocks?.length) setActiveBlock(r.blocks[0].label as any);
+  }, [dayKey]);
 
   const allSteps = useMemo(() => {
-    const steps: RoutineStep[] = [];
-    if (!routine) return steps;
-    for (const b of routine.blocks) steps.push(...b.steps);
-    return steps;
+    if (!routine) return [];
+    return routine.blocks.flatMap((b) => b.steps);
   }, [routine]);
 
   const progress = useMemo(() => {
@@ -214,6 +267,17 @@ export default function RoutinesPage() {
     const doneCount = allSteps.filter((s) => doneIds.includes(s.id)).length;
     return Math.round((doneCount / allSteps.length) * 100);
   }, [allSteps, doneIds]);
+
+  const isDayComplete = useMemo(() => {
+    if (!allSteps.length) return false;
+    return allSteps.every((s) => doneIds.includes(s.id));
+  }, [allSteps, doneIds]);
+
+  useEffect(() => {
+    if (isDayComplete && routine) {
+      setStatus("Día completado. Cierra el día o inicia uno nuevo.");
+    }
+  }, [isDayComplete, routine]);
 
   const feedbackMap = useMemo(() => {
     const map = new Map<string, Feedback["outcome"]>();
@@ -229,9 +293,12 @@ export default function RoutinesPage() {
     }
 
     setStatus("Generando rutina…");
-    clearSessionData();
+
+    // Limpia sesión del día (checklist+feedback)
+    clearSessionData(dayKey);
     setDoneIds([]);
     setFeedbackState([]);
+    setActiveBlock("morning");
 
     const res = await fetch("/api/routines/generate", {
       method: "POST",
@@ -283,10 +350,28 @@ export default function RoutinesPage() {
     setTimeout(() => setStatus(""), 1000);
   }
 
-  function toggleDone(stepId: string) {
+  // ✅ Toggle sin estado stale + auto-avance correcto (solo si estás marcando como done)
+  function toggleDone(stepId: string, blockLabel?: "morning" | "afternoon" | "evening") {
     setDoneIds((prev) => {
-      const next = prev.includes(stepId) ? prev.filter((x) => x !== stepId) : [...prev, stepId];
-      saveChecklist(next);
+      const isCurrentlyDone = prev.includes(stepId);
+      const next = isCurrentlyDone ? prev.filter((x) => x !== stepId) : [...prev, stepId];
+
+      saveChecklist(next, dayKey);
+
+      // Auto-avance: solo cuando el usuario MARCA como done (no cuando desmarca)
+      if (!isCurrentlyDone && routine && blockLabel) {
+        const block = routine.blocks.find((b) => b.label === blockLabel);
+        if (block) {
+          const completedBlock = block.steps.every((s) => next.includes(s.id));
+          if (completedBlock) {
+            const order: Array<"morning" | "afternoon" | "evening"> = ["morning", "afternoon", "evening"];
+            const idx = order.indexOf(blockLabel);
+            const nextBlock = order[Math.min(idx + 1, order.length - 1)];
+            setActiveBlock(nextBlock);
+          }
+        }
+      }
+
       return next;
     });
   }
@@ -295,9 +380,39 @@ export default function RoutinesPage() {
     setFeedbackState((prev) => {
       const next = prev.filter((x) => x.stepId !== stepId);
       next.push({ routineId: "local", stepId, outcome });
-      saveFeedback(next);
+      saveFeedback(next, dayKey);
       return next;
     });
+  }
+
+  function addVisualAsset(stepId: string, src: string, type: "pictogram" | "photo", label?: string) {
+    if (!routine) return;
+    const next: Routine = {
+      ...routine,
+      blocks: routine.blocks.map((b) => ({
+        ...b,
+        steps: b.steps.map((s) => {
+          if (s.id !== stepId) return s;
+          const current = s.visualAssets ?? [];
+          return {
+            ...s,
+            visualAssets: [...current, { type, src, label }],
+          };
+        }),
+      })),
+    };
+
+    setRoutine(next);
+    saveLastRoutine(next);
+  }
+
+  function closeDayResetChecklist() {
+    clearSessionData(dayKey);
+    setDoneIds([]);
+    setFeedbackState([]);
+    setActiveBlock("morning");
+    setStatus("Día cerrado. Checklist reiniciado.");
+    setTimeout(() => setStatus(""), 1200);
   }
 
   return (
@@ -306,9 +421,7 @@ export default function RoutinesPage() {
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-semibold">Rutina</h1>
-            <p className="muted mt-1">
-              Checklist del día + feedback. Generación por reglas explicable.
-            </p>
+            <p className="muted mt-1">Checklist del día + feedback. Generación por reglas explicable.</p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -330,9 +443,7 @@ export default function RoutinesPage() {
             <div className="mt-3">
               <ProgressBar value={progress} />
             </div>
-            <div className="mt-2 text-xs muted">
-              Marca pasos completados para que la rutina se sienta operativa.
-            </div>
+            <div className="mt-2 text-xs muted">Marca pasos completados para que la rutina se sienta operativa.</div>
           </div>
 
           <div className="card p-4">
@@ -341,8 +452,14 @@ export default function RoutinesPage() {
               <div className="mt-2 text-sm muted">No hay perfil guardado.</div>
             ) : (
               <div className="mt-2 text-sm space-y-1">
-                <div className="flex justify-between"><span className="muted">Edad</span><span className="font-medium">{profile.age}</span></div>
-                <div className="flex justify-between"><span className="muted">Contexto</span><span className="font-medium">{profile.context}</span></div>
+                <div className="flex justify-between">
+                  <span className="muted">Edad</span>
+                  <span className="font-medium">{profile.age}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="muted">Contexto</span>
+                  <span className="font-medium">{profile.context}</span>
+                </div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {(profile.sensorySensitivity.length ? profile.sensorySensitivity : ["—"]).map((x) => (
                     <Chip key={x}>{x}</Chip>
@@ -365,27 +482,104 @@ export default function RoutinesPage() {
         </section>
       ) : (
         <section className="space-y-4">
+          {/* ✅ Banner de “Día completado” con acciones claras */}
+          {isDayComplete ? (
+            <section className="card p-6">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <div className="text-lg font-semibold">Día completado ✅</div>
+                  <div className="muted text-sm mt-1">
+                    Cierra el día para reiniciar checklist/feedback o genera una nueva rutina.
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button className="btn-secondary" onClick={closeDayResetChecklist}>
+                    Cerrar día (reiniciar checklist)
+                  </button>
+                  <button className="btn-primary" onClick={generate}>
+                    Nuevo día (generar)
+                  </button>
+                </div>
+              </div>
+            </section>
+          ) : null}
+
           <div className="card p-6">
             <div className="text-lg font-semibold">{routine.title}</div>
-            <div className="muted mt-1 text-sm">Objetivo: <span className="text-neutral-900">{routine.goal}</span></div>
+            <div className="muted mt-1 text-sm">
+              Objetivo: <span className="text-neutral-900">{routine.goal}</span>
+            </div>
+
+            {events.length ? (
+              <div className="mt-4 card p-4" style={{ borderColor: "rgba(99,102,241,0.30)", background: "rgba(99,102,241,0.06)" }}>
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div>
+                    <div className="font-medium">Hoy (anticipación)</div>
+                    <div className="muted text-sm mt-1">
+                      Eventos programados para {dayKey}. Útil para preparar transiciones.
+                    </div>
+                  </div>
+                  <Link href="/calendar" className="btn-secondary">
+                    Abrir calendario
+                  </Link>
+                </div>
+
+                <div className="mt-3 grid gap-2">
+                  {events
+                    .slice()
+                    .sort((a, b) => (a.time ?? "").localeCompare(b.time ?? ""))
+                    .map((ev) => (
+                      <div key={ev.id} className="card p-4">
+                        <div className="font-medium">
+                          {ev.time ? `${ev.time} · ` : ""}
+                          {ev.title}
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {ev.category ? <span className="chip">{ev.category}</span> : null}
+                          {ev.location ? <span className="chip">{ev.location}</span> : null}
+                          {ev.pictogramSrc ? <span className="chip">Pictograma</span> : null}
+                        </div>
+                        {ev.preparation?.length ? (
+                          <ul className="mt-3 list-disc ml-5 text-sm muted space-y-1">
+                            {ev.preparation.map((x, i) => (
+                              <li key={i}>{x}</li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    ))}
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 text-sm muted">
+                No hay eventos previsorios para hoy. Puedes agregar terapias/salidas en <Link href="/calendar" className="underline">Calendario</Link>.
+              </div>
+            )}
 
             <div className="mt-4 grid gap-3 md:grid-cols-3 text-sm">
               <div className="card p-4">
                 <div className="font-medium">Plan de cambios</div>
                 <ul className="mt-2 list-disc ml-5 muted space-y-1">
-                  {routine.changePlan.map((x, i) => <li key={i}>{x}</li>)}
+                  {routine.changePlan.map((x, i) => (
+                    <li key={i}>{x}</li>
+                  ))}
                 </ul>
               </div>
               <div className="card p-4">
                 <div className="font-medium">Señales de sobrecarga</div>
                 <ul className="mt-2 list-disc ml-5 muted space-y-1">
-                  {routine.overloadSignals.map((x, i) => <li key={i}>{x}</li>)}
+                  {routine.overloadSignals.map((x, i) => (
+                    <li key={i}>{x}</li>
+                  ))}
                 </ul>
               </div>
               <div className="card p-4">
                 <div className="font-medium">Notas cuidador</div>
                 <ul className="mt-2 list-disc ml-5 muted space-y-1">
-                  {routine.caregiverNotes.map((x, i) => <li key={i}>{x}</li>)}
+                  {routine.caregiverNotes.map((x, i) => (
+                    <li key={i}>{x}</li>
+                  ))}
                 </ul>
               </div>
             </div>
@@ -410,9 +604,7 @@ export default function RoutinesPage() {
               })}
             </div>
 
-            <div className="mt-3 text-sm muted">
-              Tip: completa un bloque y pasa al siguiente.
-            </div>
+            <div className="mt-3 text-sm muted">Tip: completa un bloque y pasa al siguiente.</div>
           </div>
 
           {/* Bloque activo */}
@@ -437,30 +629,17 @@ export default function RoutinesPage() {
                       step={s}
                       done={doneIds.includes(s.id)}
                       outcome={outcome}
-                      onToggleDone={() => {
-                        toggleDone(s.id);
-
-                        // Auto-avance: si al marcar se completa el bloque, cambia al siguiente
-                        const afterDone = new Set(doneIds);
-                        afterDone.add(s.id);
-
-                        const doneNow = b.steps.filter((x) => afterDone.has(x.id)).length;
-                        const completedBlock = doneNow >= b.steps.length;
-
-                        if (completedBlock) {
-                          const order: any[] = ["morning", "afternoon", "evening"];
-                          const idx = order.indexOf(b.label);
-                          const next = order[Math.min(idx + 1, order.length - 1)];
-                          setActiveBlock(next);
-                        }
-                      }}
+                      // Si ya está completo el día, puedes decidir bloquear toggles (o permitirlos).
+                      // Aquí lo bloqueo para evitar estados raros: el usuario usa “Cerrar día”.
+                      disableToggle={isDayComplete}
+                      onToggleDone={() => toggleDone(s.id, b.label as any)}
                       onFeedback={(v) => setOutcome(s.id, v)}
+                      onAddVisualAsset={(src, type, label) => addVisualAsset(s.id, src, type, label)}
                     />
                   );
                 })}
               </section>
             ))}
-
         </section>
       )}
     </div>

@@ -35,6 +35,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <NavItem href="/" label="Inicio" />
               <NavItem href="/profile" label="Perfil" />
               <NavItem href="/routines" label="Rutina" />
+              <NavItem href="/calendar" label="Calendario" />
+              <NavItem href="/reminders" label="Recordatorios" />
+              <NavItem href="/people" label="Familia" />
             </nav>
           </div>
         </header>

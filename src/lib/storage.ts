@@ -2,8 +2,27 @@ import type { ProfileInput, Routine, Feedback } from "@/lib/types";
 
 const PROFILE_KEY = "tea_plus_profile_v1";
 const ROUTINE_KEY = "tea_plus_last_routine_v1";
-const CHECKLIST_KEY = "tea_plus_checklist_v1";
-const FEEDBACK_KEY = "tea_plus_feedback_v1";
+
+// Ahora checklist/feedback serán por día, para que no se “pegue” entre días
+const CHECKLIST_KEY_PREFIX = "tea_plus_checklist_v1";
+const FEEDBACK_KEY_PREFIX = "tea_plus_feedback_v1";
+
+function todayKey() {
+  // YYYY-MM-DD en horario local del navegador
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function checklistKey(day = todayKey()) {
+  return `${CHECKLIST_KEY_PREFIX}_${day}`;
+}
+
+function feedbackKey(day = todayKey()) {
+  return `${FEEDBACK_KEY_PREFIX}_${day}`;
+}
 
 export function saveProfile(profile: ProfileInput) {
   localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
@@ -23,25 +42,33 @@ export function loadLastRoutine(): Routine | null {
   return raw ? (JSON.parse(raw) as Routine) : null;
 }
 
-export function saveChecklist(stepIdsDone: string[]) {
-  localStorage.setItem(CHECKLIST_KEY, JSON.stringify(stepIdsDone));
+/** Checklist por día */
+export function saveChecklist(stepIdsDone: string[], day?: string) {
+  localStorage.setItem(checklistKey(day), JSON.stringify(stepIdsDone));
 }
 
-export function loadChecklist(): string[] {
-  const raw = localStorage.getItem(CHECKLIST_KEY);
+export function loadChecklist(day?: string): string[] {
+  const raw = localStorage.getItem(checklistKey(day));
   return raw ? (JSON.parse(raw) as string[]) : [];
 }
 
-export function saveFeedback(list: Feedback[]) {
-  localStorage.setItem(FEEDBACK_KEY, JSON.stringify(list));
+/** Feedback por día */
+export function saveFeedback(list: Feedback[], day?: string) {
+  localStorage.setItem(feedbackKey(day), JSON.stringify(list));
 }
 
-export function loadFeedback(): Feedback[] {
-  const raw = localStorage.getItem(FEEDBACK_KEY);
+export function loadFeedback(day?: string): Feedback[] {
+  const raw = localStorage.getItem(feedbackKey(day));
   return raw ? (JSON.parse(raw) as Feedback[]) : [];
 }
 
-export function clearSessionData() {
-  localStorage.removeItem(CHECKLIST_KEY);
-  localStorage.removeItem(FEEDBACK_KEY);
+/** Limpia solo “sesión” del día actual (checklist+feedback) */
+export function clearSessionData(day?: string) {
+  localStorage.removeItem(checklistKey(day));
+  localStorage.removeItem(feedbackKey(day));
+}
+
+/** Útil para UI: saber el día actual */
+export function getTodayKey() {
+  return todayKey();
 }

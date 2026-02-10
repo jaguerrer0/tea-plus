@@ -16,6 +16,26 @@ function baseDurationByAge(age: number) {
   return 10;
 }
 
+function supportMultiplier(supportLevel: ProfileInput["supportLevel"]) {
+  if (supportLevel === "high") return 0.85;
+  if (supportLevel === "moderate") return 0.95;
+  return 1;
+}
+
+function microSteps(instructions: string[]) {
+  // Convierte instrucciones en micro-pasos. Mantiene frases cortas.
+  const out: string[] = [];
+  for (const line of instructions) {
+    const parts = line
+      .split(/\.|;|→|\n/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (parts.length <= 1) out.push(line.trim());
+    else out.push(...parts.map((p) => (p.endsWith(".") ? p : `${p}.`)));
+  }
+  return out;
+}
+
 function addVisualSupports(communicationLevel: ProfileInput["communicationLevel"]) {
   if (communicationLevel === "non-verbal") {
     return ["Pictogramas", "Checklist visual", "Temporizador visual"];
@@ -24,6 +44,28 @@ function addVisualSupports(communicationLevel: ProfileInput["communicationLevel"
     return ["Checklist", "Temporizador (visual o app)"];
   }
   return ["Checklist"];
+}
+
+function adjustForSupport(profile: ProfileInput, instructions: string[], visualSupport: string[]) {
+  const level = profile.supportLevel;
+  if (!level) return { instructions, visualSupport };
+
+  if (level === "high") {
+    return {
+      instructions: microSteps(instructions),
+      visualSupport: Array.from(new Set(["Pictogramas", "Primero-Luego", ...visualSupport])),
+    };
+  }
+
+  if (level === "moderate") {
+    return {
+      instructions,
+      visualSupport: Array.from(new Set(["Checklist visual", ...visualSupport])),
+    };
+  }
+
+  // low
+  return { instructions, visualSupport };
 }
 
 function sensoryGuidance(sensory: ProfileInput["sensorySensitivity"]) {
@@ -47,15 +89,20 @@ function transitionBackupPlans(sensory: ProfileInput["sensorySensitivity"]) {
 }
 
 function buildStep(title: string, durationMin: number, instructions: string[], profile: ProfileInput): RoutineStep {
-  const visualSupport = addVisualSupports(profile.communicationLevel);
+  let visualSupport = addVisualSupports(profile.communicationLevel);
   const sensoryNotes = sensoryGuidance(profile.sensorySensitivity);
   const backupPlan = transitionBackupPlans(profile.sensorySensitivity);
+
+  const adjusted = adjustForSupport(profile, instructions, visualSupport);
+  visualSupport = adjusted.visualSupport;
+
+  const dur = Math.max(2, Math.round(durationMin * supportMultiplier(profile.supportLevel)));
 
   return {
     id: uid("step"),
     title,
-    durationMin,
-    instructions,
+    durationMin: dur,
+    instructions: adjusted.instructions,
     visualSupport,
     sensoryNotes: sensoryNotes.length ? sensoryNotes : undefined,
     backupPlan,
@@ -197,6 +244,10 @@ export function generateRoutine(profile: ProfileInput): Routine {
     explainability.push(`Se incorporaron ajustes sensoriales: ${profile.sensorySensitivity.join(", ")}.`);
   }
 
+  if (profile.supportLevel) {
+    explainability.push(`Se ajustó granularidad, duración y apoyos por nivel de apoyo: ${profile.supportLevel}.`);
+  }
+
   const changePlan = [
     "Avisar cambios con anticipación (5–10 min) usando temporizador.",
     "Ofrecer opciones limitadas para mantener control percibido.",
@@ -215,8 +266,10 @@ export function generateRoutine(profile: ProfileInput): Routine {
     "Refuerzo positivo específico: 'Bien hecho por X'.",
   ];
 
+  const who = profile.name?.trim();
+
   return {
-    title: "Rutina diaria personalizada",
+    title: who ? `Rutina diaria de ${who}` : "Rutina diaria personalizada",
     goal: profile.goal,
     blocks,
     changePlan,
