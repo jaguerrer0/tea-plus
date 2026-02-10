@@ -70,7 +70,7 @@ function Segment({
   );
 }
 
-function StepCard({
+function StepAccordionItem({
   step,
   done,
   outcome,
@@ -84,85 +84,108 @@ function StepCard({
   onFeedback: (v: Feedback["outcome"]) => void;
 }) {
   return (
-    <div className="card p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={onToggleDone}
-              className="h-6 w-6 rounded-lg border flex items-center justify-center"
-              style={
-                done
-                  ? { background: "rgba(16,185,129,0.12)", borderColor: "rgba(16,185,129,0.35)" }
-                  : undefined
-              }
-              aria-label="Marcar como completado"
-              title="Marcar como completado"
-            >
-              {done ? "✓" : ""}
-            </button>
+    <details className="card overflow-hidden">
+      <summary className="cursor-pointer select-none px-5 py-4 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              onToggleDone();
+            }}
+            className="h-6 w-6 rounded-lg border flex items-center justify-center shrink-0"
+            style={
+              done
+                ? { background: "rgb(16 185 129 / 0.12)", borderColor: "rgb(16 185 129 / 0.35)" }
+                : undefined
+            }
+            aria-label="Marcar como completado"
+            title="Marcar como completado"
+          >
+            {done ? "✓" : ""}
+          </button>
+
+          <div className="min-w-0">
             <div className="font-semibold truncate">{step.title}</div>
-            <Chip>{step.durationMin} min</Chip>
-            {step.visualSupport?.length ? <Chip>Apoyo visual</Chip> : null}
-            {step.sensoryNotes?.length ? <Chip>Sensory</Chip> : null}
-            {step.backupPlan?.length ? <Chip>Plan B</Chip> : null}
-          </div>
-
-          <div className="mt-3 grid gap-4 md:grid-cols-2">
-            <div>
-              <div className="text-sm font-medium">Instrucciones</div>
-              <ul className="mt-2 list-disc ml-5 text-sm muted space-y-1">
-                {step.instructions.map((i, idx) => (
-                  <li key={idx}>{i}</li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="space-y-3">
-              {step.visualSupport?.length ? (
-                <div>
-                  <div className="text-sm font-medium">Apoyo visual</div>
-                  <div className="mt-1 text-sm muted">{step.visualSupport.join(", ")}</div>
-                </div>
-              ) : null}
-
-              {step.sensoryNotes?.length ? (
-                <div>
-                  <div className="text-sm font-medium">Notas sensoriales</div>
-                  <ul className="mt-2 list-disc ml-5 text-sm muted space-y-1">
-                    {step.sensoryNotes.map((n, idx) => (
-                      <li key={idx}>{n}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              {step.backupPlan?.length ? (
-                <div>
-                  <div className="text-sm font-medium">Plan B</div>
-                  <ul className="mt-2 list-disc ml-5 text-sm muted space-y-1">
-                    {step.backupPlan.map((b, idx) => (
-                      <li key={idx}>{b}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
+            <div className="mt-1 flex flex-wrap gap-2">
+              <span className="chip">{step.durationMin} min</span>
+              {step.visualSupport?.length ? <span className="chip">Apoyo visual</span> : null}
+              {step.sensoryNotes?.length ? <span className="chip">Sensorial</span> : null}
+              {step.backupPlan?.length ? <span className="chip">Plan B</span> : null}
             </div>
           </div>
         </div>
 
-        <div className="shrink-0">
-          <div className="text-xs muted mb-2">Feedback</div>
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="hidden md:block">
+            <div className="text-xs muted mb-1 text-right">Feedback</div>
+            <Segment value={outcome} onChange={onFeedback} />
+          </div>
+
+          {/* Chevron */}
+          <span className="chip chev" aria-hidden>
+            ▼
+          </span>
+
+        </div>
+      </summary>
+
+      <div className="px-5 pb-5 pt-1 border-t" style={{ borderColor: "rgb(var(--border))" }}>
+        {/* Feedback en mobile */}
+        <div className="md:hidden flex items-center justify-between gap-3 mb-4">
+          <div className="text-xs muted">Feedback</div>
           <Segment value={outcome} onChange={onFeedback} />
         </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <div className="text-sm font-medium">Instrucciones</div>
+            <ul className="mt-2 list-disc ml-5 text-sm muted space-y-1">
+              {step.instructions.map((i, idx) => (
+                <li key={idx}>{i}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="space-y-3">
+            {step.visualSupport?.length ? (
+              <div>
+                <div className="text-sm font-medium">Apoyo visual</div>
+                <div className="mt-1 text-sm muted">{step.visualSupport.join(", ")}</div>
+              </div>
+            ) : null}
+
+            {step.sensoryNotes?.length ? (
+              <div>
+                <div className="text-sm font-medium">Notas sensoriales</div>
+                <ul className="mt-2 list-disc ml-5 text-sm muted space-y-1">
+                  {step.sensoryNotes.map((n, idx) => (
+                    <li key={idx}>{n}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {step.backupPlan?.length ? (
+              <div>
+                <div className="text-sm font-medium">Plan B</div>
+                <ul className="mt-2 list-disc ml-5 text-sm muted space-y-1">
+                  {step.backupPlan.map((b, idx) => (
+                    <li key={idx}>{b}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        </div>
       </div>
-    </div>
+    </details>
   );
 }
 
 export default function RoutinesPage() {
   const [profile, setProfile] = useState<ProfileInput | null>(null);
   const [routine, setRoutine] = useState<Routine | null>(null);
+  const [activeBlock, setActiveBlock] = useState<"morning" | "afternoon" | "evening">("morning");
 
   const [doneIds, setDoneIds] = useState<string[]>([]);
   const [feedback, setFeedbackState] = useState<Feedback[]>([]);
@@ -171,10 +194,13 @@ export default function RoutinesPage() {
 
   useEffect(() => {
     setProfile(loadProfile());
-    setRoutine(loadLastRoutine());
+    const r = loadLastRoutine();
+    setRoutine(r);
     setDoneIds(loadChecklist());
     setFeedbackState(loadFeedback());
+    if (r?.blocks?.length) setActiveBlock(r.blocks[0].label as any);
   }, []);
+
 
   const allSteps = useMemo(() => {
     const steps: RoutineStep[] = [];
@@ -365,32 +391,76 @@ export default function RoutinesPage() {
             </div>
           </div>
 
-          {routine.blocks.map((b) => (
-            <details key={b.label} className="card p-0 overflow-hidden" open>
-              <summary className="cursor-pointer select-none px-6 py-4 flex items-center justify-between">
-                <div className="font-semibold">{labelBlock(b.label)}</div>
-                <div className="text-sm muted">
-                  {b.steps.filter((s) => doneIds.includes(s.id)).length}/{b.steps.length} completados
-                </div>
-              </summary>
+          {/* Tabs */}
+          <div className="card p-4">
+            <div className="flex flex-wrap gap-2">
+              {routine.blocks.map((b) => {
+                const isActive = activeBlock === (b.label as any);
+                const doneCount = b.steps.filter((s) => doneIds.includes(s.id)).length;
 
-              <div className="px-6 pb-6 space-y-3">
+                return (
+                  <button
+                    key={b.label}
+                    className={isActive ? "btn-primary" : "btn-secondary"}
+                    onClick={() => setActiveBlock(b.label as any)}
+                  >
+                    {labelBlock(b.label)} ({doneCount}/{b.steps.length})
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-3 text-sm muted">
+              Tip: completa un bloque y pasa al siguiente.
+            </div>
+          </div>
+
+          {/* Bloque activo */}
+          {routine.blocks
+            .filter((b) => b.label === activeBlock)
+            .map((b) => (
+              <section key={b.label} className="space-y-3">
+                <div className="card p-5">
+                  <div className="flex items-center justify-between">
+                    <div className="font-semibold">{labelBlock(b.label)}</div>
+                    <div className="text-sm muted">
+                      {b.steps.filter((s) => doneIds.includes(s.id)).length}/{b.steps.length} completados
+                    </div>
+                  </div>
+                </div>
+
                 {b.steps.map((s) => {
                   const outcome = feedbackMap.get(s.id) ?? "none";
                   return (
-                    <StepCard
+                    <StepAccordionItem
                       key={s.id}
                       step={s}
                       done={doneIds.includes(s.id)}
                       outcome={outcome}
-                      onToggleDone={() => toggleDone(s.id)}
+                      onToggleDone={() => {
+                        toggleDone(s.id);
+
+                        // Auto-avance: si al marcar se completa el bloque, cambia al siguiente
+                        const afterDone = new Set(doneIds);
+                        afterDone.add(s.id);
+
+                        const doneNow = b.steps.filter((x) => afterDone.has(x.id)).length;
+                        const completedBlock = doneNow >= b.steps.length;
+
+                        if (completedBlock) {
+                          const order: any[] = ["morning", "afternoon", "evening"];
+                          const idx = order.indexOf(b.label);
+                          const next = order[Math.min(idx + 1, order.length - 1)];
+                          setActiveBlock(next);
+                        }
+                      }}
                       onFeedback={(v) => setOutcome(s.id, v)}
                     />
                   );
                 })}
-              </div>
-            </details>
-          ))}
+              </section>
+            ))}
+
         </section>
       )}
     </div>

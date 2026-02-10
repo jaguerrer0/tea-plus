@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ProfileInput, Sensory } from "@/lib/types";
 import { loadProfile, saveProfile } from "@/lib/storage";
+import { useRouter } from "next/navigation";
+
 
 const SENSORY: { key: Sensory; title: string; desc: string }[] = [
   { key: "sound", title: "Sonido", desc: "Ruido, voces, TV." },
@@ -28,6 +30,8 @@ function StepPill({ active, label }: { active: boolean; label: string }) {
 export default function ProfilePage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [saved, setSaved] = useState(false);
+  const router = useRouter();
+
 
   const [profile, setProfile] = useState<ProfileInput>({
     age: 8,
@@ -52,10 +56,15 @@ export default function ProfilePage() {
   }
 
   function onSave() {
-    saveProfile(profile);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1200);
-  }
+  saveProfile(profile);
+  setSaved(true);
+
+  setTimeout(() => {
+    setSaved(false);
+    router.push("/routines");
+  }, 900);
+}
+
 
   const canNext =
     (step === 1 && profile.age >= 2) ||
@@ -224,7 +233,12 @@ export default function ProfilePage() {
                 </button>
               )}
 
-              {saved ? <span className="text-sm">Guardado</span> : null}
+              {saved ? (
+  <span className="chip" style={{ borderColor: "rgb(var(--brand) / 0.35)", background: "rgb(var(--brand) / 0.10)" }}>
+    Perfil guardado ✓
+  </span>
+) : null}
+
             </div>
           </div>
         </div>
