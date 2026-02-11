@@ -9,6 +9,20 @@ import { loadEvents } from "@/lib/calendar-storage";
 import { blobToObjectUrl } from "@/lib/media-db";
 import { loadPeople } from "@/lib/people-storage";
 
+function personDisplayName(p: PersonCard): string {
+  // Soporta varias variantes posibles sin romper TS
+  const anyP = p as any;
+  return (
+    anyP.name ??
+    anyP.label ??
+    anyP.title ??
+    anyP.displayName ??
+    anyP.relation ??
+    "Familiar"
+  );
+}
+
+
 type EventView = PlannedEvent & { pictogramUrl?: string };
 
 type ModalPayload =
@@ -158,7 +172,7 @@ export default function DayPage() {
 
     setModal({
       kind: "person",
-      title: p.name,
+      title: personDisplayName(p),
       imageUrl: imageUrl ?? undefined,
       audioUrl: audioUrl ?? undefined,
       autocloseMs: 5000,
@@ -274,14 +288,14 @@ export default function DayPage() {
                       style={{ borderColor: "rgb(var(--border))" }}
                     >
                       {thumb ? (
-                        <img src={thumb} alt={p.name} className="h-full w-full object-cover" />
+                        <img src={thumb} alt={personDisplayName(p)} className="h-full w-full object-cover" />
                       ) : (
                         <span className="text-xs muted">img</span>
                       )}
                     </div>
 
                     <div className="min-w-0">
-                      <div className="font-medium truncate">{p.name}</div>
+                      <div className="font-medium truncate">{personDisplayName(p)}</div>
                       <div className="text-xs muted">Tocar</div>
                     </div>
                   </button>
