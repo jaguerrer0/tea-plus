@@ -232,7 +232,15 @@ function buildEvening(profile: ProfileInput): RoutineBlock {
 }
 
 export function generateRoutine(profile: ProfileInput): Routine {
-  const blocks: RoutineBlock[] = [buildMorning(profile), buildAfternoon(profile), buildEvening(profile)];
+  const focus = profile.routineFocus ?? "full-day";
+  const blocks: RoutineBlock[] =
+    focus === "morning"
+      ? [buildMorning(profile)]
+      : focus === "afternoon"
+        ? [buildAfternoon(profile)]
+        : focus === "evening"
+          ? [buildEvening(profile)]
+          : [buildMorning(profile), buildAfternoon(profile), buildEvening(profile)];
 
   const explainability: string[] = [
     "Los pasos se dividen en bloques para reducir carga cognitiva.",
@@ -267,9 +275,11 @@ export function generateRoutine(profile: ProfileInput): Routine {
   ];
 
   const who = profile.name?.trim();
+  const focusTitle =
+    focus === "morning" ? "Rutina de mañana" : focus === "afternoon" ? "Rutina de tarde" : focus === "evening" ? "Rutina de noche" : "Rutina diaria";
 
   return {
-    title: who ? `Rutina diaria de ${who}` : "Rutina diaria personalizada",
+    title: who ? `${focusTitle} de ${who}` : `${focusTitle} personalizada`,
     goal: profile.goal,
     blocks,
     changePlan,

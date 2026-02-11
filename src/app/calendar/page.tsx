@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { PlannedEvent } from "@/lib/types";
 import { getTodayKey } from "@/lib/storage";
 import { deleteEvent, loadEvents, saveEvents } from "@/lib/calendar-storage";
+import { blobToObjectUrl, saveBlob } from "@/lib/media-db";
 
 function uid(prefix: string) {
   return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now()}`;
@@ -26,6 +27,7 @@ export default function CalendarPage() {
   const [day, setDay] = useState(getTodayKey());
   const [list, setList] = useState<PlannedEvent[]>([]);
   const [status, setStatus] = useState<string>("");
+  const [pictos, setPictos] = useState<Record<string, string>>({});
 
   const [form, setForm] = useState<{
     time: string;
@@ -47,6 +49,24 @@ export default function CalendarPage() {
     setList(loadEvents(day));
   }, [day]);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const map: Record<string, string> = {};
+      for (const ev of list) {
+        if (ev.pictogramSrc?.startsWith("idb:")) {
+          const id = ev.pictogramSrc.slice(4);
+          const url = await blobToObjectUrl(id);
+          if (url) map[ev.pictogramSrc] = url;
+        }
+      }
+      if (!cancelled) setPictos(map);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [list]);
+
   const sorted = useMemo(() => {
     return [...list].sort((a, b) => (a.time ?? "").localeCompare(b.time ?? ""));
   }, [list]);
@@ -67,9 +87,9 @@ export default function CalendarPage() {
       location: form.location.trim() || undefined,
       preparation: form.preparation.trim()
         ? form.preparation
-            .split("\n")
-            .map((x) => x.trim())
-            .filter(Boolean)
+          .split("\n")
+          .map((x) => x.trim())
+          .filter(Boolean)
         : undefined,
       pictogramSrc: form.pictogramSrc.trim() || undefined,
     };
@@ -137,9 +157,31 @@ export default function CalendarPage() {
                       ) : null}
                     </div>
 
-                    <button className="btn-secondary" onClick={() => remove(ev.id)}>
-                      Eliminar
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {(() => {
+                        if (!ev.pictogramSrc) return null;
+
+                        const imgSrc = ev.pictogramSrc.startsWith("idb:")
+                          ? pictos[ev.pictogramSrc] // puede ser undefined mientras carga
+                          : ev.pictogramSrc;
+
+                        // ✅ No renderizar si aún no hay URL lista
+                        if (!imgSrc) return null;
+
+                        return (
+                          <img
+                            src={imgSrc}
+                            alt="Pictograma"
+                            className="h-16 w-16 rounded-xl border object-cover"
+                          />
+                        );
+                      })()}
+
+
+                      <button className="btn-secondary" onClick={() => remove(ev.id)}>
+                        Eliminar
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))
@@ -190,8 +232,27 @@ export default function CalendarPage() {
             </div>
 
             <div>
-              <div className="text-sm font-medium">Pictograma (URL o dataURL, opcional)</div>
-              <input className="input mt-2" value={form.pictogramSrc} onChange={(e) => setForm((p) => ({ ...p, pictogramSrc: e.target.value }))} placeholder="https://..." />
+              <div className="text-sm font-medium">Pictograma (opcional)</div>
+              <div className="muted text-xs">Puedes pegar URL/dataURL o subir imagen (se guarda offline).</div>
+              <input
+                className="input mt-2"
+                value={form.pictogramSrc}
+                onChange={(e) => setForm((p) => ({ ...p, pictogramSrc: e.target.value }))}
+                placeholder="https://..."
+              />
+
+              <input
+                className="input mt-2"
+                type="file"
+                accept="image/*"
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  const id = await saveBlob(f);
+                  setForm((p) => ({ ...p, pictogramSrc: `idb:${id}` }));
+                  e.target.value = "";
+                }}
+              />
             </div>
 
             <button className="btn-primary w-full" onClick={addEvent}>

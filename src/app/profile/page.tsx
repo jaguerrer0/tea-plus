@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { ProfileInput, Sensory } from "@/lib/types";
+import type { ProfileInput, Sensory, RoutineFocus } from "@/lib/types";
 import { loadProfile, saveProfile } from "@/lib/storage";
 import { useRouter } from "next/navigation";
 
@@ -39,9 +39,18 @@ export default function ProfilePage() {
     communicationLevel: "verbal",
     sensorySensitivity: [],
     supportLevel: undefined,
+    routineFocus: "full-day",
     goal: "Rutina matutina para ir a la escuela",
     context: "home",
   });
+
+  function autoFocus(goal: string): RoutineFocus {
+    const g = goal.toLowerCase();
+    if (g.includes("dorm") || g.includes("noche")) return "evening";
+    if (g.includes("matut") || g.includes("mañ")) return "morning";
+    if (g.includes("tarde") || g.includes("regresar")) return "afternoon";
+    return "full-day";
+  }
 
   useEffect(() => {
     const existing = loadProfile();
@@ -195,6 +204,35 @@ export default function ProfilePage() {
                   onChange={(e) => setProfile((p) => ({ ...p, goal: e.target.value }))}
                   placeholder="Ej: Rutina matutina para ir a la escuela"
                 />
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="md:col-span-2">
+                  <div className="text-sm font-medium">Enfoque</div>
+                  <div className="muted text-xs">Define qué bloque generar (opcional).</div>
+                  <select
+                    className="input mt-2"
+                    value={profile.routineFocus ?? "full-day"}
+                    onChange={(e) =>
+                      setProfile((p) => ({ ...p, routineFocus: e.target.value as any }))
+                    }
+                  >
+                    <option value="full-day">Día completo</option>
+                    <option value="morning">Solo mañana</option>
+                    <option value="afternoon">Solo tarde</option>
+                    <option value="evening">Solo noche</option>
+                  </select>
+                </div>
+
+                <div className="flex items-end">
+                  <button
+                    className="btn-secondary w-full"
+                    type="button"
+                    onClick={() => setProfile((p) => ({ ...p, routineFocus: autoFocus(p.goal) }))}
+                  >
+                    Auto por objetivo
+                  </button>
+                </div>
               </div>
 
               <div className="grid gap-3 md:grid-cols-2">

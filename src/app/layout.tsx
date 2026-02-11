@@ -1,16 +1,5 @@
 import "./globals.css";
-import Link from "next/link";
-
-function NavItem({ href, label }: { href: string; label: string }) {
-  return (
-    <Link
-      href={href}
-      className="px-3 py-2 rounded-xl text-sm font-medium transition hover:bg-black/[0.04]"
-    >
-      {label}
-    </Link>
-  );
-}
+import AppNav from "@/components/app-nav";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -31,14 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </div>
             </div>
 
-            <nav className="flex items-center gap-1">
-              <NavItem href="/" label="Inicio" />
-              <NavItem href="/profile" label="Perfil" />
-              <NavItem href="/routines" label="Rutina" />
-              <NavItem href="/calendar" label="Calendario" />
-              <NavItem href="/reminders" label="Recordatorios" />
-              <NavItem href="/people" label="Familia" />
-            </nav>
+            <AppNav />
           </div>
         </header>
 

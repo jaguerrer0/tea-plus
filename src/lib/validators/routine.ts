@@ -6,6 +6,7 @@ export const GenerateRoutineSchema = z.object({
   communicationLevel: z.enum(["verbal", "semi-verbal", "non-verbal"]),
   sensorySensitivity: z.array(z.enum(["sound", "light", "touch", "crowds"])),
   supportLevel: z.enum(["low", "moderate", "high"]).optional(),
+  routineFocus: z.enum(["full-day", "morning", "afternoon", "evening"]).optional(),
   goal: z.string().min(5).max(140),
   context: z.enum(["home", "school", "mixed"]),
 });

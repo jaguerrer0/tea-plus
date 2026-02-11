@@ -1,6 +1,7 @@
 export type CommunicationLevel = "verbal" | "semi-verbal" | "non-verbal";
 export type Context = "home" | "school" | "mixed";
 export type Sensory = "sound" | "light" | "touch" | "crowds";
+export type RoutineFocus = "full-day" | "morning" | "afternoon" | "evening";
 
 /** Nivel de apoyo (no es diagnóstico; es una guía práctica para ajustar la estructura). */
 export type SupportLevel = "low" | "moderate" | "high";
@@ -13,8 +14,20 @@ export type ProfileInput = {
   sensorySensitivity: Sensory[];
   /** Nivel de apoyo requerido en el día a día. Opcional. */
   supportLevel?: SupportLevel;
+  /** Enfoque de rutina: día completo o solo un bloque. Opcional. */
+  routineFocus?: RoutineFocus;
   goal: string;
   context: Context;
+};
+
+export type DailyStats = {
+  day: string; // YYYY-MM-DD
+  totalSteps: number;
+  doneSteps: number;
+  completionPct: number;
+  hardCount: number;
+  failedCount: number;
+  createdAtISO: string;
 };
 
 export type RoutineStep = {

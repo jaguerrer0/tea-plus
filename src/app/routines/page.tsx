@@ -14,6 +14,8 @@ import {
   saveLastRoutine,
   getTodayKey,
 } from "@/lib/storage";
+import { saveDailyStats } from "@/lib/stats-storage";
+import { blobToObjectUrl, saveBlob } from "@/lib/media-db";
 
 import { loadEvents } from "@/lib/calendar-storage";
 
@@ -88,6 +90,25 @@ function StepAccordionItem({
   onAddVisualAsset: (src: string, type: "pictogram" | "photo", label?: string) => void;
   disableToggle?: boolean;
 }) {
+  const [resolved, setResolved] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const next: Record<string, string> = {};
+      for (const a of step.visualAssets ?? []) {
+        if (a.src?.startsWith("idb:")) {
+          const id = a.src.slice(4);
+          const url = await blobToObjectUrl(id);
+          if (url) next[a.src] = url;
+        }
+      }
+      if (!cancelled) setResolved(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [step.visualAssets]);
   const [assetSrc, setAssetSrc] = useState("");
   const [assetType, setAssetType] = useState<"pictogram" | "photo">("pictogram");
   const [assetLabel, setAssetLabel] = useState("");
@@ -167,8 +188,11 @@ function StepAccordionItem({
                 <div className="mt-2 grid gap-2 grid-cols-2">
                   {step.visualAssets.map((a, i) => (
                     <div key={i} className="card p-2">
-                      {/* Nota: src puede ser URL o dataURL */}
-                      <img src={a.src} alt={a.label ?? a.type} className="rounded-xl border" />
+                      <img
+                        src={a.src.startsWith("idb:") ? (resolved[a.src] ?? "") : a.src}
+                        alt={a.label ?? a.type}
+                        className="rounded-xl border"
+                      />
                       {a.label ? <div className="text-xs muted mt-1">{a.label}</div> : null}
                     </div>
                   ))}
@@ -198,6 +222,23 @@ function StepAccordionItem({
                   </button>
                 </div>
                 <input className="input" value={assetSrc} onChange={(e) => setAssetSrc(e.target.value)} placeholder="URL o dataURL (pictograma/foto)" />
+
+                <div className="mt-2">
+                  <div className="text-xs muted">O subir imagen (se guarda offline como en Familia)</div>
+                  <input
+                    className="input mt-2"
+                    type="file"
+                    accept="image/*"
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      const id = await saveBlob(f);
+                      onAddVisualAsset(`idb:${id}`, assetType, assetLabel.trim() || undefined);
+                      setAssetLabel("");
+                      e.target.value = "";
+                    }}
+                  />
+                </div>
               </div>
             </div>
 
@@ -407,6 +448,24 @@ export default function RoutinesPage() {
   }
 
   function closeDayResetChecklist() {
+    // Guardar estadísticas operativas (no diagnóstico)
+    const total = allSteps.length;
+    const done = allSteps.filter((s) => doneIds.includes(s.id)).length;
+    const hardCount = feedback.filter((f) => f.outcome === "hard").length;
+    const failedCount = feedback.filter((f) => f.outcome === "failed").length;
+
+    if (total > 0) {
+      saveDailyStats({
+        day: dayKey,
+        totalSteps: total,
+        doneSteps: done,
+        completionPct: Math.round((done / total) * 100),
+        hardCount,
+        failedCount,
+        createdAtISO: new Date().toISOString(),
+      });
+    }
+
     clearSessionData(dayKey);
     setDoneIds([]);
     setFeedbackState([]);

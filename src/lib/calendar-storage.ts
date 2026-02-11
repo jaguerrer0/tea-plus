@@ -1,28 +1,46 @@
+// src/lib/calendar-storage.ts
+
 import type { PlannedEvent } from "@/lib/types";
 
-const EVENTS_KEY_PREFIX = "tea_plus_events_v1";
+const KEY_PREFIX = "tea_plus_calendar_day_"; // AJUSTA si tu prefijo real es otro
 
-export function eventsKey(day: string) {
-  return `${EVENTS_KEY_PREFIX}_${day}`;
+function keyForDay(day: string) {
+  return `${KEY_PREFIX}${day}`;
 }
 
 export function loadEvents(day: string): PlannedEvent[] {
-  const raw = localStorage.getItem(eventsKey(day));
+  const raw = localStorage.getItem(keyForDay(day));
   return raw ? (JSON.parse(raw) as PlannedEvent[]) : [];
 }
 
 export function saveEvents(day: string, list: PlannedEvent[]) {
-  localStorage.setItem(eventsKey(day), JSON.stringify(list));
-}
-
-export function upsertEvent(day: string, ev: PlannedEvent) {
-  const list = loadEvents(day);
-  const next = list.filter((x) => x.id !== ev.id);
-  next.push(ev);
-  saveEvents(day, next);
+  localStorage.setItem(keyForDay(day), JSON.stringify(list));
 }
 
 export function deleteEvent(day: string, id: string) {
-  const list = loadEvents(day);
-  saveEvents(day, list.filter((x) => x.id !== id));
+  const list = loadEvents(day).filter((x) => x.id !== id);
+  saveEvents(day, list);
+}
+
+/** ✅ NUEVO: trae todos los eventos de todas las fechas */
+export function loadAllEvents(): PlannedEvent[] {
+  const out: PlannedEvent[] = [];
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k) continue;
+    if (!k.startsWith(KEY_PREFIX)) continue;
+
+    const raw = localStorage.getItem(k);
+    if (!raw) continue;
+
+    try {
+      const arr = JSON.parse(raw) as PlannedEvent[];
+      if (Array.isArray(arr)) out.push(...arr);
+    } catch {
+      // ignore
+    }
+  }
+
+  return out;
 }
